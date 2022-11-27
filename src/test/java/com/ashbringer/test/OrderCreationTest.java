@@ -1,0 +1,64 @@
+package com.ashbringer.test;
+
+import com.ashbringer.generator.OrderGenerator;
+import com.ashbringer.helper.OrderRequestHelper;
+import com.ashbringer.pojo.Order;
+import com.ashbringer.utils.Constants;
+import io.qameta.allure.Description;
+import io.qameta.allure.junit4.DisplayName;
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
+import java.util.List;
+
+import static org.hamcrest.Matchers.notNullValue;
+
+@RunWith(Parameterized.class)
+public class OrderCreationTest {
+
+    private final List<String> colors;
+    private String responseBody;
+
+    public  OrderCreationTest(List<String> colors) {
+        this.colors = colors;
+    }
+
+    @Before
+    public void setup() {
+        RestAssured.baseURI = Constants.baseURI;
+    }
+
+    @After
+    public void destroy() {
+        if (responseBody != null) {
+            //api отмены заказа не работает, но во всяком случае написал код отмены тестовых действий
+            OrderRequestHelper.cancelOrder(responseBody).thenReturn();
+        }
+    }
+
+    @Parameterized.Parameters
+    public static Object[][] getColor() {
+        return new Object[][]{
+                {List.of()},
+                {List.of("BLACK")},
+                {List.of("GREY")},
+                {List.of("GREY", "BLACK")}
+        };
+    }
+
+    @Test
+    @DisplayName("Проверка создания заказа с разными цветами")
+    @Description("Проверяет создание заказа с разными вариантами выбора цвета: " +
+            "с серым, с черным, серым и черным одновременно или без выбора цвета")
+    public void orderCreationTest() {
+        Order order = OrderGenerator.generate(colors);
+        Response response = OrderRequestHelper.createOrder(order.toString());
+        response.then().assertThat().body("track", notNullValue()).statusCode(201);
+        this.responseBody = response.body().asString();
+    }
+}
